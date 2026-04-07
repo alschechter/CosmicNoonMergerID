@@ -29,40 +29,39 @@ from zoobot.pytorch.training.finetune import FinetuneableZoobotClassifier
 
 
 set_random_seeds(626)
-CNNName = 'Adam_Cyclic'
 #class_for_gradcam = 'nonmerger'
 class_for_gradcam = 'merger'
 
+learning_rate = 3.154957151204336e-07
+lr_decay = 0.8814595270497834
+dropout = 0.1205273604259237
+hidden_size = 256
+num_classes = 2
+
 # Load the saved model state
-checkpoint = torch.load('ResNet_' + CNNName +'.pth', map_location=torch.device('cpu'))
-# model = models.resnet18(pretrained=True)
-# #Set up the model for inference
-# dropout_rate = 0.3
-# model.fc = nn.Sequential(
-#     nn.Dropout(dropout_rate),  # Add dropout here
-#     nn.Linear(512, 256),
-#     nn.ReLU(),
-#     nn.Dropout(dropout_rate),
-#     nn.Linear(256,2)# Adjust the output size to match your task (e.g., 2 classes)
-# )
+checkpoint = torch.load('nano_1_trial1_lr3.154957151204336e-07_epoch120.pth', map_location=torch.device('cpu'))
 
-learning_rate = 1e-5
-lr_decay = 0.5
-
-model = FinetuneableZoobotClassifier(name='hf_hub:mwalmsley/zoobot-encoder-resnet18', learning_rate=learning_rate,  # use a low learning rate
-    lr_decay=lr_decay,  # reduce the learning rate from lr to lr^0.5 for each block deeper in the network
-    # arguments specific to FinetuneableZoobotClassifier
-    num_classes=2
+model = FinetuneableZoobotClassifier(name='hf_hub:mwalmsley/zoobot-encoder-convnext_nano', learning_rate=learning_rate,
+    layer_decay=lr_decay,
+    num_classes=num_classes
 )
-# Load the model weights from the checkpoint
-model.load_state_dict(checkpoint['model_state_dict'])
-model = model.to('cpu')  # Ensure the model is on the correct device (GPU/CPU)
-model.eval()  # Switch to evaluation mode
+model.head = nn.Sequential(
+    nn.Dropout(dropout),
+    nn.Linear(640, hidden_size),
+    nn.ReLU(),
+    nn.Dropout(dropout),
+    nn.Linear(hidden_size, num_classes)
+)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+# Load the model weights from the checkpoint
+model.load_state_dict(checkpoint['model_state_dict'])
+model = model.to(device)  # Ensure the model is on the correct device (GPU/CPU)
+model.eval()  # Switch to evaluation mode
+
 
 from BinaryMergerDataset import BinaryMergerDataset, get_transforms
-path = '/n/holystore01/LABS/hernquist_lab/Users/aschechter/z1widebinmocks/'
+path = '/n/holystore01/LABS/hernquist_lab/Users/aschechter/NormalizedDataset/'
 BATCH_SIZE = 64
 
 test_mergers_dataset_orig = BinaryMergerDataset(path, 'test', mergers = True, transform = get_transforms(aug=False), codetest=False)
@@ -111,15 +110,15 @@ all_names = np.array(all_names)
 
 
 if class_for_gradcam == 'merger':
-    targetclass = 0
-else:
     targetclass = 1
+else:
+    targetclass = 0
     
 print('targetclass', targetclass)
-#save_dir = 'gradcam/' + CNNName + '/test/predicted_label_' + class_for_gradcam 
-save_dir = '/n/home09/aschechter/code/BinaryCNNTesting/PytorchCNNs/gradcam/zoobot/bothlabels'
-if os.path.exists(save_dir):
-    print('yes this directory exists')
+#save_dir = 'gradcam/' + CNNName + '/test/predicted_label_' + class_for_gradcam
+save_dir = '/n/home09/aschechter/code/BinaryCNNTesting/PytorchCNNs/gradcam/zoobot'
+for subdir in ['TruePositive', 'TrueNegative', 'FalsePositive', 'FalseNegative']:
+    os.makedirs(os.path.join(save_dir, subdir), exist_ok=True)
 
 #### GradCAM with help from github and chat GPT
 # We have to specify the target we want to generate the CAM for.
@@ -130,8 +129,15 @@ targets = [0, 1]
 # print(targets)
 print('ClassifierOutputTarget', ClassifierOutputTarget(targetclass), type(ClassifierOutputTarget(targetclass)))
 path_test = []
-targets_GradCAM = [model.encoder.layer4[1].conv2]
-layer_names_GradCAM = ['layer4_conv2']
+targets_GradCAM = [model.encoder.stages[-1].blocks[-1]]
+layer_names_GradCAM = ['stages_last_block']
+
+# Build lookup from name -> predicted class using already-computed batch predictions
+name_to_pred = dict(zip(all_names, all_preds))
+
+# Create GradCAM once and reuse across all images/targets
+cam = GradCAM(model=model, target_layers=targets_GradCAM)
+
 # Select the first validation image to visualize Grad-CAM
 sample_index_choices = np.arange(0, len(test_dataloader.dataset))#len(test_dataloader.dataset))#  # Change this index to visualize different images
 for sample_index in sample_index_choices:
@@ -180,22 +186,31 @@ for sample_index in sample_index_choices:
 
     #make labels words
     if sample_label == 1.:
-        sample_label_word = 'nonmerger'
-    else:
         sample_label_word = 'merger'
+    else:
+        sample_label_word = 'nonmerger'
         
     
     # Get the original image for visualization
-    #am I uing predictions when I need to be using probabilities?
     original_img = sample_image.squeeze().cpu().numpy().transpose(1, 2, 0)  # (C, H, W) to (H, W, C)
-    predicted_class = torch.argmax((model(sample_image)), dim=1) 
-    predicted_label = f"Predicted: {predicted_class}, True: {sample_label_word}"
-    
-    if predicted_class == 1.:
-        predicted_class_word = 'nonmerger'
-    else:
+    predicted_class = int(name_to_pred[sample_name])  # look up from batch inference, avoids extra forward pass
+
+    if predicted_class == 1:
         predicted_class_word = 'merger'
-        
+    else:
+        predicted_class_word = 'nonmerger'
+
+    # Determine classification category for save directory
+    # In this file: label/pred 1 = merger (positive), 0 = nonmerger (negative)
+    if sample_label == 1. and predicted_class == 1:    # true merger, predicted merger
+        classification_dir = os.path.join(save_dir, 'TruePositive')
+    elif sample_label == 0. and predicted_class == 0:  # true nonmerger, predicted nonmerger
+        classification_dir = os.path.join(save_dir, 'TrueNegative')
+    elif sample_label == 0. and predicted_class == 1:  # true nonmerger, predicted merger
+        classification_dir = os.path.join(save_dir, 'FalsePositive')
+    else:                                               # true merger, predicted nonmerger
+        classification_dir = os.path.join(save_dir, 'FalseNegative')
+
     fig, axes = plt.subplots(1, len(targets)+1, figsize=(15, 6))  # Create subplots for each target class and original image
     axes = axes.ravel()  # Flatten axes array if it's multi-dimensional
     plt.subplots_adjust(wspace=0, hspace=0)
@@ -205,11 +220,12 @@ for sample_index in sample_index_choices:
     #extent = [0, im_sum.shape[1], im_sum.shape[0], 0]  # [x_min, x_max, y_max, y_min]
     mean = np.mean(im_sum)
     std = np.std(im_sum)
-    contour_levels2 = [mean + i * std for i in [1,3,5]]
+    # contour_levels2 = [mean + i * std for i in [1,3,5]]
+    contour_levels3 = [mean + i * std for i in [3,5]]
     #extent = [0, im_sum.shape[1], im_sum.shape[0], 0]  # [x_min, x_max, y_max, y_min]
     im_original = ax.imshow(im_sum, cmap='magma', norm=LogNorm())  ##, extent = extent Log scale #vmin=np.min(im_sum)*1e-7, vmax=1
     #ax.contour(ibig, colors = 'white', levels = contour_levels, zorder = 1, origin = 'upper') #, extent = extent
-    ax.contour(im_sum, colors = 'white', levels = contour_levels2, zorder = 1)
+    ax.contour(im_sum, colors = 'white', levels = contour_levels3, zorder = 1)
     ax.set_title(f"Original Image - True: {sample_label_word}", fontsize = 'medium')
     ax.axis('off')
     # cbar_o = fig.add_axes([.91,.124,.04,.754])
@@ -228,23 +244,12 @@ for sample_index in sample_index_choices:
         # else:
         #     targetclass = 1
         if target_class == 0:
-            target_class_word = 'merger'    
+            target_class_word = 'nonmerger'    
         else:
-            target_class_word = 'nonmerger'
+            target_class_word = 'merger'
         target = [ClassifierOutputTarget(target_class)] #setting to merger or nonmerger
-        target_layer_GradCAM = targets_GradCAM[0]
-        # for target_layer_GradCAM in targets_GradCAM:    
-        #     layername = layer_names_GradCAM[counter]
-        #     counter += 1
-        #print('target', target_layer_GradCAM)
-        with GradCAM(model=model, target_layers=[target_layer_GradCAM]) as cam:
-            #print('hello??')
-            #print('shapes', np.shape(sample_image), np.shape(targets))
-            grayscale_cam = cam(input_tensor=sample_image, targets=target)
-            #print('hi?')
-            print(np.shape(grayscale_cam)) 
-            grayscale_cam = grayscale_cam[0, :]  # Get the CAM for the first image in the batch
-            #print('greyscale2', grayscale_cam)
+        grayscale_cam = cam(input_tensor=sample_image, targets=target)
+        grayscale_cam = grayscale_cam[0, :]  # Get the CAM for the first image in the batch
         # Convert the input image to a format suitable for visualization
         rgb_img = sample_image.squeeze().cpu().numpy().transpose(1, 2, 0)  # (C, H, W) to (H, W, C)
         #grayscale_cam = grayscale_cam#.numpy()
@@ -264,7 +269,7 @@ for sample_index in sample_index_choices:
         ax = axes[counter]
         im = ax.imshow(visualization) #, extent = extent
         #ax.contour(ibig, colors = 'white', levels = contour_levels, zorder=1,  origin = 'upper') #, extent = extent
-        ax.contour(im_sum, colors = 'white', levels = contour_levels2, zorder=1) #, extent = extent
+        ax.contour(im_sum, colors = 'white', levels = contour_levels3, zorder=1) #, extent = extent
         ax.set_title(f"Class Activated: {target_class_word} - Pred: {predicted_class_word}", fontsize = 'medium')
         ax.axis('off')
 
@@ -282,11 +287,11 @@ for sample_index in sample_index_choices:
     # cbar_grad = fig.colorbar(im, cax=cbar_ax)
     # cbar_grad.set_ticks([])
     plt.tight_layout()
-    plt.savefig(f"{save_dir}/gradcam_test_image_{sample_name}.png") #, dpi=300
+    plt.savefig(f"{classification_dir}/gradcam_test_image_{sample_name}.png") #, dpi=300
     #plt.show()
     plt.clf()
     plt.close()
-            
+
 # save_dir2 = 'gradcam/' + CNNName + '/test/guided'
 # if os.path.exists(save_dir2):
 #     print('yes this directory exists')
