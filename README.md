@@ -6,7 +6,7 @@
 This work uses TNG50, HST CANDELS imaging, and Zoobot to create a CNN to identify galaxy mergers near cosmic noon. This work is submitted to the Astrophysical Journal.
 
 ### Data Availability
-All datasets used in this project are available on our [Zenodo Page](10.5281/zenodo.19374288).
+Mock used in this project are available on our [Zenodo Page](10.5281/zenodo.19374288). SKIRT datacubes are available upon request.
 
 ---
 
@@ -26,7 +26,7 @@ The repository is organized into the following components:
   - `TNGstuff`
     Code written by Dr. Rebecca Nevin to walk the TNG merger trees and select galaxy mergers and mass matched nonmergers
   - `MakeMocks_v2`
-    Takes input images from SKIRT radiative transfer (run by Dr. Xuejian Shen) and creates mock HST images
+    Takes input images from SKIRT radiative transfer (run by Dr. Xuejian Shen) and creates mock HST images. 
   - `CutoutBackgroundsLockMethod` and `AddBackgroundtoMock`
     Adds cutouts from HST CANDELS COSMOS mosaics to mock images
   - `PlotandDivideMocks`
