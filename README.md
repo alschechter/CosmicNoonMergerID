@@ -3,10 +3,10 @@
 <img width="1709" height="1438" alt="paper_figure_categories" src="https://github.com/user-attachments/assets/31ae9887-cdeb-4a9e-b75c-08e4d5dfa702" />
 
 ## Overview
-This work uses TNG50, HST CANDELS imaging, and Zoobot to create a CNN to identify galaxy mergers near cosmic noon. This was accepted to NeurIPS ML4PS 2025.
+This work uses TNG50, HST CANDELS imaging, and Zoobot to create a CNN to identify galaxy mergers near cosmic noon. This work is submitted to the Astrophysical Journal.
 
 ### Data Availability
-All datasets used in this project are available on our [Zenodo Page](https://zenodo.org/records/17612012).
+All datasets used in this project are available on our [Zenodo Page](10.5281/zenodo.19374288).
 
 ---
 
@@ -52,5 +52,5 @@ The repository is organized into the following components:
 
 ## Citation
 
-- [ADS](https://ui.adsabs.harvard.edu/abs/2025arXiv251115006S/abstract)
-- [arXiv](https://arxiv.org/abs/2511.15006)
+- [ADS](https://ui.adsabs.harvard.edu/abs/2025arXiv251012173S/abstract)
+- [arXiv](https://arxiv.org/abs/2510.12173)
