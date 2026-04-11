@@ -1,5 +1,5 @@
 # CosmicNoonMergerID
-<img width="2788" height="639" alt="MockSteps NSF" src="https://github.com/user-attachments/assets/675e7737-4a0c-45bf-bdd4-383696309b73" />
+<img width="2788" height="639" alt="Galaxy Examples" src=https://github.com/alschechter/CosmicNoonMergerID/edit/main/README.md#:~:text=paper_figure_categories" />
 
 
 
