@@ -1,7 +1,6 @@
+
 # CosmicNoonMergerID
-<img width="2788" height="639" alt="Galaxy Examples" src=https://github.com/alschechter/CosmicNoonMergerID/edit/main/README.md#:~:text=paper_figure_categories" />
-
-
+<img width="1709" height="1438" alt="paper_figure_categories" src="https://github.com/user-attachments/assets/31ae9887-cdeb-4a9e-b75c-08e4d5dfa702" />
 
 ## Overview
 This work uses TNG50, HST CANDELS imaging, and Zoobot to create a CNN to identify galaxy mergers near cosmic noon. This was accepted to NeurIPS ML4PS 2025.
