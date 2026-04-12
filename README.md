@@ -51,6 +51,6 @@ The repository is organized into the following components:
 - Aimee Schechter, Becky Nevin, Jacob Shen, Aaron Stemo, with help from Alex Ćiprijanović and Marina Dunn
 
 ## Citation
-
+- If you use any of this code, please cite the paper below
 - [ADS](https://ui.adsabs.harvard.edu/abs/2025arXiv251012173S/abstract)
 - [arXiv](https://arxiv.org/abs/2510.12173)
